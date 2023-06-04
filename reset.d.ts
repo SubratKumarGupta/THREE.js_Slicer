@@ -10,7 +10,3 @@ import "@total-typescript/ts-reset";
 //     translatePointer(point2).y,
 //     camera.position.clone().z
 //   ),
-// const centroid = ((p1:Vector3 ,p2:Vector3)=>{p1.clone().add(p2).multiplyScalar(0.5);})(
-//     rayDir1,
-//     rayDir2,
-//   )

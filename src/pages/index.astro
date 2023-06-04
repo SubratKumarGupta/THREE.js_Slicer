@@ -40,6 +40,7 @@ import Layout from "../layouts/Layout.astro";
     DoubleSide,
     Vector3,
     Plane,
+    Box3,
   } from "three";
   import * as THREE from "three";
   import { TransformControls } from "three/examples/jsm/controls/TransformControls";
@@ -110,9 +111,11 @@ import Layout from "../layouts/Layout.astro";
     transformControls.attach(mesh);
     transformHelpers.push(transformControls);
     scene.add(transformControls);
+
     interactionManager.add(mesh);
 
     mesh.addEventListener("click", (e) => {
+      e.stopPropagation();
       if (mode !== "TRANSFORM") return;
       console.log("top", e.target);
       const transformControls = transformHelpers.find(
@@ -121,6 +124,7 @@ import Layout from "../layouts/Layout.astro";
       if (transformControls === undefined) {
         throw Error(`can't find transformControls with name ${e.target.name}`);
       }
+
       transformControls.showX
         ? (transformControls.showX = false)
         : (transformControls.showX = true);
@@ -139,55 +143,6 @@ import Layout from "../layouts/Layout.astro";
   addTransformControls(mesh);
   scene.add(mesh);
   mesh.position.set(0, 0, 0);
-
-  const thickness = 500;
-  const rotateX: number = 15;
-  const getTopMesh = (mesh: Mesh) => {
-    const planeProxyClip = new BoxGeometry(5, thickness, 5);
-    planeProxyClip.center().translate(0, thickness / 2, 0);
-    planeProxyClip.rotateX(rotateX);
-
-    const planeProxy = new Brush(
-      planeProxyClip,
-      new MeshBasicMaterial({ color: 0xff0000 })
-    );
-    planeProxy.name = "topClip";
-    const brush2 = new Brush(mesh.geometry);
-    // scene.add(planeProxy);
-    // addTransformControls(planeProxy);
-
-    const result = csgEvaluator.evaluate(brush2, planeProxy, SUBTRACTION);
-    result.material = mesh.material;
-    return result;
-  };
-  const getBottomMesh = (mesh: Mesh) => {
-    const planeProxyClip = new BoxGeometry(5, thickness, 5);
-    planeProxyClip.center().translate(0, -(thickness / 2), 0);
-    planeProxyClip.rotateX(rotateX);
-
-    const planeProxy = new Brush(
-      planeProxyClip,
-      new MeshBasicMaterial({ color: 0xff0000 })
-    );
-    planeProxy.name = "BottomClip";
-    const brush2 = new Brush(mesh.geometry);
-    // scene.add(planeProxy);
-    // addTransformControls(planeProxy);
-
-    const result = csgEvaluator.evaluate(brush2, planeProxy, SUBTRACTION);
-    result.material = mesh.material;
-    return result;
-  };
-  const topMesh = getTopMesh(mesh);
-  const bottomMesh = getBottomMesh(mesh);
-
-  topMesh.translateY(2);
-  bottomMesh.translateY(2);
-
-  addTransformControls(bottomMesh);
-  addTransformControls(topMesh);
-  scene.add(bottomMesh);
-  scene.add(topMesh);
 
   // mesh.rota
   console.log(scene);
@@ -211,7 +166,6 @@ import Layout from "../layouts/Layout.astro";
       point2.y = e.clientY;
       const raycaster1 = new THREE.Raycaster();
       const raycaster2 = new THREE.Raycaster();
-
       raycaster1.setFromCamera(translatePointer(point1), camera);
       raycaster2.setFromCamera(translatePointer(point2), camera);
       const rayPos1 = camera.position.clone().add(raycaster1.ray.direction);
@@ -251,7 +205,7 @@ import Layout from "../layouts/Layout.astro";
         rayDir2,
         centroid.add(camera.position.clone().sub(centroid).normalize())
       );
-      // Create a basic rectangle geometry
+
       // Create a basic rectangle geometry
       const planeGeometry = new THREE.PlaneGeometry(5, 5);
 
@@ -260,6 +214,7 @@ import Layout from "../layouts/Layout.astro";
       const focalPoint = new THREE.Vector3()
         .copy(coplanarPoint)
         .add(slicerPlane.normal);
+
       const slash = new THREE.Mesh(
         planeGeometry,
         new MeshBasicMaterial({
@@ -274,15 +229,82 @@ import Layout from "../layouts/Layout.astro";
       // slash.rotateX(Math.PI / 12);
       slash.position.set(coplanarPoint.x, coplanarPoint.y, coplanarPoint.z);
       slash.name = "slace";
-      addTransformControls(slash);
-      scene.add(slash);
+      // addTransformControls(slash);
+      // scene.add(slash);
+
+      const getTopMesh = (mesh: Mesh, plane: Plane) => {
+        if (!new Box3().setFromObject(mesh, true).intersectsPlane(plane)) {
+          return;
+        }
+        const planeProxyClip = new THREE.BoxGeometry(1000, 1000, 1000);
+        planeProxyClip.translate(0, 0, 499.99 - plane.constant);
+        planeProxyClip.lookAt(plane.normal);
+
+        const planeProxy = new Brush(
+          planeProxyClip,
+          new MeshBasicMaterial({ color: 0xff0000 })
+        );
+
+        planeProxy.name = "topClip";
+        const brush2 = new Brush(mesh.geometry);
+        // scene.add(planeProxy);
+        // addTransformControls(planeProxy);
+
+        const result = csgEvaluator.evaluate(brush2, planeProxy, SUBTRACTION);
+        result.geometry.computeVertexNormals();
+        result.material = mesh.material;
+        return result;
+      };
+      const getBottomMesh = (mesh: Mesh, plane: Plane) => {
+        if (!new Box3().setFromObject(mesh, true).intersectsPlane(plane)) {
+          return;
+        }
+        const planeProxyClip = new BoxGeometry(1000, 1000, 1000);
+        planeProxyClip.translate(0, 0, 499.99 + plane.constant);
+        planeProxyClip.lookAt(plane.normal.clone().multiplyScalar(-1));
+
+        const planeProxy = new Brush(
+          planeProxyClip,
+          new MeshBasicMaterial({ color: 0xff0000 })
+        );
+        planeProxy.name = "BottomClip";
+        const brush2 = new Brush(mesh.geometry);
+        // scene.add(planeProxy);
+        // addTransformControls(planeProxy);
+
+        const result = csgEvaluator.evaluate(brush2, planeProxy, SUBTRACTION);
+        result.geometry.computeVertexNormals();
+        result.material = new MeshBasicMaterial({ color: 0xff0000 });
+        return result;
+      };
+      (() => {
+        const sepration = 0.01;
+
+        // sepration.normalize();
+
+        const topMesh = getTopMesh(mesh, slicerPlane);
+        const bottomMesh = getBottomMesh(mesh, slicerPlane);
+        if (topMesh === undefined || bottomMesh == undefined) return;
+        topMesh.translateY(2);
+        bottomMesh.translateY(2);
+        addTransformControls(bottomMesh);
+        addTransformControls(topMesh);
+        topMesh.translateOnAxis(slicerPlane.normal, -(sepration / 2));
+        bottomMesh.translateOnAxis(slicerPlane.normal, sepration / 2);
+        scene.add(bottomMesh);
+        scene.add(topMesh);
+      })();
+
       console.log(scene);
 
       point1.x = 0;
       point1.y = 0;
       point2.x = 0;
       point2.y = 0;
-      // (document.getElementById("lineVisualizer") as HTMLElement).innerHTML = "";
+      (document.getElementById("lineVisualizer") as HTMLElement).innerHTML = "";
+      mode = "VIEW";
+      transformHelpersOff();
+      controls.enabled = true;
     }
   };
 
