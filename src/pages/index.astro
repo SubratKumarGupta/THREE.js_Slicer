@@ -3,14 +3,46 @@ import Layout from "../layouts/Layout.astro";
 ---
 
 <Layout title="Welcome to Astro.">
+  <input
+    type="file"
+    id="fileInput"
+    accept=".glb"
+    multiple="false"
+    style="display: none;"
+  />
   <main class="relative text-white">
     <div
       class="pointer-events-none"
-      style="position:absolute;font-family:monospace;transform:translate(-50%, -50%);left:50%;top:2.5%;"
+      style="position:absolute;font-family:monospace;transform:translate(-50%, -50%);left:50%;top:10%;"
     >
-      Mesh Slicer - C to cut , V to view , T transform
+      Mesh Slicer - click C and drag to cut , click V and mouse for
+      OrbitControls , click T then click on Mesh use TransformControls
       <div class="-pt-2">
         MODE:<span id="mode" class="text-blue-600"></span>
+        | <span
+          id="reset-btn"
+          class="text-blue-600 , hover:text-red-600 pointer-events-auto cursor-pointer"
+        >
+          RESET
+        </span>
+        | <span
+          id="monkey"
+          class="text-blue-600 , hover:text-blue-400 pointer-events-auto cursor-pointer"
+        >
+          LOAD MONKEY
+        </span>
+        | <span
+          id="cube"
+          class="text-blue-600 , hover:text-blue-400 pointer-events-auto cursor-pointer"
+        >
+          LOAD CUBE
+        </span>
+        | <span
+          id="knot"
+          class="text-blue-600 , hover:text-blue-400 pointer-events-auto cursor-pointer"
+        >
+          LOAD KNOT
+        </span>
       </div>
     </div>
 
@@ -26,356 +58,7 @@ import Layout from "../layouts/Layout.astro";
   </main>
 </Layout>
 
-<script>
-  import {
-    Scene,
-    PerspectiveCamera,
-    WebGLRenderer,
-    BoxGeometry,
-    MeshBasicMaterial,
-    Mesh,
-    AmbientLight,
-    GridHelper,
-    Vector2,
-    DoubleSide,
-    Vector3,
-    Plane,
-    Box3,
-  } from "three";
-  import * as THREE from "three";
-  import { TransformControls } from "three/examples/jsm/controls/TransformControls";
-  import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-  import { Brush, Evaluator, SUBTRACTION } from "three-bvh-csg";
-  import { InteractionManager } from "three.interactive";
-  const scene = new Scene();
-  const renderer = new WebGLRenderer({
-    alpha: true,
-    antialias: true,
-    canvas: document.getElementById("slicer_canvas") as HTMLCanvasElement,
-  });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  renderer.setClearColor(0x000000);
-  const camera = new PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
-  camera.lookAt(0, 0, 0);
-  const interactionManager = new InteractionManager(
-    renderer,
-    camera,
-    renderer.domElement
-  );
-
-  // Add OrbitControls
-  const csgEvaluator = new Evaluator();
-  const controls = new OrbitControls(camera, renderer.domElement);
-
-  const size = 100;
-  const divisions = 30;
-  const transformHelpers: TransformControls[] = [];
-
-  const transformHelpersOff = () => {
-    transformHelpers.forEach((transformControls) => {
-      transformControls.showX ? (transformControls.showX = false) : () => {};
-      transformControls.showY ? (transformControls.showY = false) : () => {};
-      transformControls.showZ ? (transformControls.showZ = false) : () => {};
-    });
-  };
-  // const transformHelpersOn = () => {
-  //   transformHelpers.forEach((transformControls) => {
-  //     transformControls.showX ? () => {} : (transformControls.showX = true);
-  //     transformControls.showY ? () => {} : (transformControls.showY = true);
-  //     transformControls.showZ ? () => {} : (transformControls.showZ = true);
-  //   });
-  // };
-  const gridHelper = new GridHelper(size, divisions);
-  scene.add(gridHelper);
-  const translatePointer = (vec2: Vector2) => {
-    // calculate pointer position in normalized device coordinates
-    // (-1 to +1) for both components
-    const pointer = new Vector2();
-    pointer.x = (vec2.x / window.innerWidth) * 2 - 1;
-    pointer.y = -(vec2.y / window.innerHeight) * 2 + 1;
-    return pointer;
-  };
-  const addTransformControls = (mesh: Mesh) => {
-    const transformControls = new TransformControls(
-      camera,
-      renderer.domElement
-    );
-    mesh.name ? () => {} : (mesh.name = `${transformHelpers.length}`);
-    transformControls.name = mesh.name;
-    transformControls.attach(mesh);
-    transformHelpers.push(transformControls);
-    scene.add(transformControls);
-
-    interactionManager.add(mesh);
-
-    mesh.addEventListener("click", (e) => {
-      e.stopPropagation();
-      if (mode !== "TRANSFORM") return;
-      console.log("top", e.target);
-      const transformControls = transformHelpers.find(
-        (obj) => obj.name === e.target.name
-      );
-      if (transformControls === undefined) {
-        throw Error(`can't find transformControls with name ${e.target.name}`);
-      }
-
-      transformControls.showX
-        ? (transformControls.showX = false)
-        : (transformControls.showX = true);
-      transformControls.showY
-        ? (transformControls.showY = false)
-        : (transformControls.showY = true);
-      transformControls.showZ
-        ? (transformControls.showZ = false)
-        : (transformControls.showZ = true);
-    });
-  };
-
-  const geometry = new BoxGeometry(1, 1, 1, 2, 2);
-  const material = new MeshBasicMaterial({ color: 0x00ff00 });
-  const mesh = new Mesh(geometry, material);
-  addTransformControls(mesh);
-  scene.add(mesh);
-  mesh.position.set(0, 0, 0);
-
-  // mesh.rota
-  console.log(scene);
-  const ambientLight = new AmbientLight(0xffffff, 5);
-  scene.add(ambientLight);
-  camera.position.set(
-    -5.995905848476253,
-    0.5128365591830274,
-    -3.3196737473194697
-  );
-
-  const point1 = new Vector2();
-  const point2 = new Vector2();
-  document.onmousedown = (e) => {
-    if (mode !== "CUT") return;
-    if (point1.length() === 0) {
-      point1.x = e.clientX;
-      point1.y = e.clientY;
-    } else {
-      point2.x = e.clientX;
-      point2.y = e.clientY;
-      const raycaster1 = new THREE.Raycaster();
-      const raycaster2 = new THREE.Raycaster();
-      raycaster1.setFromCamera(translatePointer(point1), camera);
-      raycaster2.setFromCamera(translatePointer(point2), camera);
-      const rayPos1 = camera.position.clone().add(raycaster1.ray.direction);
-      const rayPos2 = camera.position.clone().add(raycaster2.ray.direction);
-      const rayOrigin1 = camera.position
-        .clone()
-        .add(
-          raycaster1.ray.direction
-            .clone()
-            .multiplyScalar(camera.position.length())
-        );
-      const rayOrigin2 = camera.position
-        .clone()
-        .add(
-          raycaster2.ray.direction
-            .clone()
-            .multiplyScalar(camera.position.length())
-        );
-      const rayDir1 = rayPos2.clone().sub(rayPos1).normalize();
-      const rayDir2 = camera.getWorldDirection(new Vector3());
-      raycaster1.setFromCamera(
-        translatePointer(point1.clone().add(point2).multiplyScalar(0.5)),
-        camera
-      );
-
-      const centroid = ((p1: Vector3, p2: Vector3) => {
-        return p1.clone().add(p2).multiplyScalar(0.5);
-      })(rayDir1, rayDir2);
-
-      const slicerPlane = new Plane().setFromCoplanarPoints(
-        rayOrigin1,
-        rayOrigin2,
-        centroid.add(camera.position.clone().sub(centroid))
-      );
-      console.log(
-        rayDir1,
-        rayDir2,
-        centroid.add(camera.position.clone().sub(centroid).normalize())
-      );
-
-      // Create a basic rectangle geometry
-      const planeGeometry = new THREE.PlaneGeometry(5, 5);
-
-      // Align the geometry to the plane
-      const coplanarPoint = slicerPlane.coplanarPoint(new THREE.Vector3());
-      const focalPoint = new THREE.Vector3()
-        .copy(coplanarPoint)
-        .add(slicerPlane.normal);
-
-      const slash = new THREE.Mesh(
-        planeGeometry,
-        new MeshBasicMaterial({
-          color: 0x0000ff,
-          side: DoubleSide,
-          // wireframe: true,
-          opacity: 0.5,
-        })
-      );
-
-      slash.lookAt(focalPoint);
-      // slash.rotateX(Math.PI / 12);
-      slash.position.set(coplanarPoint.x, coplanarPoint.y, coplanarPoint.z);
-      slash.name = "slace";
-      // addTransformControls(slash);
-      // scene.add(slash);
-
-      const getTopMesh = (mesh: Mesh, plane: Plane) => {
-        if (!new Box3().setFromObject(mesh, true).intersectsPlane(plane)) {
-          return;
-        }
-        const planeProxyClip = new THREE.BoxGeometry(1000, 1000, 1000);
-        planeProxyClip.translate(0, 0, 499.99 - plane.constant);
-        planeProxyClip.lookAt(plane.normal);
-
-        const planeProxy = new Brush(
-          planeProxyClip,
-          new MeshBasicMaterial({ color: 0xff0000 })
-        );
-
-        planeProxy.name = "topClip";
-        const brush2 = new Brush(mesh.geometry);
-        // scene.add(planeProxy);
-        // addTransformControls(planeProxy);
-
-        const result = csgEvaluator.evaluate(brush2, planeProxy, SUBTRACTION);
-        result.geometry.computeVertexNormals();
-        result.material = mesh.material;
-        return result;
-      };
-      const getBottomMesh = (mesh: Mesh, plane: Plane) => {
-        if (!new Box3().setFromObject(mesh, true).intersectsPlane(plane)) {
-          return;
-        }
-        const planeProxyClip = new BoxGeometry(1000, 1000, 1000);
-        planeProxyClip.translate(0, 0, 499.99 + plane.constant);
-        planeProxyClip.lookAt(plane.normal.clone().multiplyScalar(-1));
-
-        const planeProxy = new Brush(
-          planeProxyClip,
-          new MeshBasicMaterial({ color: 0xff0000 })
-        );
-        planeProxy.name = "BottomClip";
-        const brush2 = new Brush(mesh.geometry);
-        // scene.add(planeProxy);
-        // addTransformControls(planeProxy);
-
-        const result = csgEvaluator.evaluate(brush2, planeProxy, SUBTRACTION);
-        result.geometry.computeVertexNormals();
-        result.material = new MeshBasicMaterial({ color: 0xff0000 });
-        return result;
-      };
-      (() => {
-        const sepration = 0.01;
-
-        // sepration.normalize();
-
-        const topMesh = getTopMesh(mesh, slicerPlane);
-        const bottomMesh = getBottomMesh(mesh, slicerPlane);
-        if (topMesh === undefined || bottomMesh == undefined) return;
-        topMesh.translateY(2);
-        bottomMesh.translateY(2);
-        addTransformControls(bottomMesh);
-        addTransformControls(topMesh);
-        topMesh.translateOnAxis(slicerPlane.normal, -(sepration / 2));
-        bottomMesh.translateOnAxis(slicerPlane.normal, sepration / 2);
-        scene.add(bottomMesh);
-        scene.add(topMesh);
-      })();
-
-      console.log(scene);
-
-      point1.x = 0;
-      point1.y = 0;
-      point2.x = 0;
-      point2.y = 0;
-      (document.getElementById("lineVisualizer") as HTMLElement).innerHTML = "";
-      mode = "VIEW";
-      transformHelpersOff();
-      controls.enabled = true;
-    }
-  };
-
-  let mode: "TRANSFORM" | "VIEW" | "CUT" = "VIEW";
-  const displayMode = document.getElementById("mode") as HTMLSpanElement;
-  transformHelpersOff();
-  displayMode.innerText = mode;
-  document.onkeydown = (e) => {
-    const key = e.code;
-    console.log(key, "a");
-    switch (key) {
-      case "KeyT":
-        mode = "TRANSFORM";
-        transformHelpersOff();
-        controls.enabled = false;
-        break;
-      case "KeyV":
-        mode = "VIEW";
-        transformHelpersOff();
-        controls.enabled = true;
-        break;
-      case "KeyC":
-        mode = "CUT";
-        transformHelpersOff();
-        controls.enabled = false;
-        break;
-      default:
-        break;
-    }
-    console.log(camera.position);
-    displayMode.innerText = mode;
-  };
-
-  document.onmousemove = (e) => {
-    if (point1.length() > 0) {
-      (document.getElementById("lineVisualizer") as HTMLElement).innerHTML = `
-        <line x1="${point1.x}" y1="${point1.y}" x2="${e.clientX}" y2="${e.clientY}" style="stroke:rgb(255,0,0);stroke-width:1" />
-      `;
-    }
-  };
-  function animate() {
-    requestAnimationFrame(animate);
-
-    controls.update();
-
-    // Perform any necessary updates to the scene or objects
-    // ...
-    renderer.render(scene, camera);
-  }
-  animate();
-
-  // Function to handle window resize
-
-  function handleResize() {
-    // Update renderer dimensions
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    renderer.setSize(width, height);
-    interactionManager.update();
-
-    // Update camera aspect ratio
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-  }
-
-  // Add event listener for window resize
-  window.addEventListener("resize", handleResize);
-
-  // Call handleResize initially to set initial dimensions
-  handleResize();
-</script>
+<script src="../main"></script>
 
 <style>
   #lineVisualizer {
